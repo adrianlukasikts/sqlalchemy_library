@@ -7,6 +7,8 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy import Engine
 
 
 class Base(DeclarativeBase):
@@ -21,7 +23,7 @@ class Book(Base):
     year: Mapped[int] = mapped_column(name="year")
 
     user: Mapped["User"] = relationship(back_populates="books")
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=True)
 
 
 class User(Base):
@@ -35,30 +37,45 @@ class User(Base):
         back_populates="user", cascade="all"
     )
 
+class UserDoesNotExistException(Exception):
+    pass
+class BookDoesNotExistException(Exception):
+    pass
 
-from sqlalchemy import create_engine
+class Operation:
+    def __init__(self):
+        self.engine: Engine = create_engine("sqlite:///library.db", echo=True)
+        self.session: Session = Session(self.engine)
 
-engine = create_engine("sqlite:///library.db", echo=True)
-Base.metadata.create_all(engine)
+    def insert_book(self, title: str, author: str, year: str):
+        self.session.add(Book(title=title, author=author, year=year))
+        self.session.commit()
 
-with Session(engine) as session:
-    osoba_alibabska = Book(title="Osoba Alibabska i 14 osób z doświadczeniem rozbójniczym", author="nieznany", year="1967")
+    def insert_user(self, name: str, surname: str, email: str):
+        self.session.add(User(name=name, surname=surname, email=email, books=[]))
+        self.session.commit()
 
-    kacper_barszcz = User(
-        name="Kacper",
-        surname="Barszcz",
-        email="kacper.barscz09@gmail.com",
-        books=[osoba_alibabska,
-               Book(title="Osoba Tadeuszowska", author="Adam Mickiewicz", year="1867")]
-    )
+    def update_book_owner(self, book_id: int, user_id: int):
+        user: type[User] = self.session.query(User).filter_by(id=user_id).one()
+        book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
 
-    john_doe = User(
-        name="John",
-        surname="Doe",
-        email="johndoe@example.com",
-        books=[osoba_alibabska]
-    )
+        if not user:
+            raise UserDoesNotExistException()
+        elif not book:
+            raise BookDoesNotExistException()
 
-    session.add_all([kacper_barszcz, john_doe])
+        book.user_id = user_id
 
-    session.commit()
+        self.session.commit()
+
+
+    def init_db(self):
+        Base.metadata.create_all(self.engine)
+
+
+operation = Operation()
+operation.init_db()
+operation.insert_user("Kacper", "Barszcz", "kapi@A.com")
+operation.insert_book("Balladyna", "Julisz Slowacki", "1830")
+
+operation.update_book_owner(1, 1)
