@@ -1,5 +1,7 @@
 from typing import List
 from typing import Optional
+from sqlalchemy import DateTime
+from datetime import datetime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase
@@ -15,6 +17,7 @@ class Base(DeclarativeBase):
     pass
 
 
+
 class Book(Base):
     __tablename__ = "books"
     id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
@@ -24,6 +27,9 @@ class Book(Base):
 
     user: Mapped["User"] = relationship(back_populates="books")
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=True)
+    rents: Mapped[List["Rented"]] = relationship(
+        back_populates="book", cascade="all"
+    )
 
 
 class User(Base):
@@ -36,6 +42,20 @@ class User(Base):
     books: Mapped[List["Book"]] = relationship(
         back_populates="user", cascade="all"
     )
+    rents: Mapped[List["Rented"]] = relationship(
+        back_populates="user", cascade="all"
+    )
+
+class Rented(Base):
+    __tablename__ = "rented"
+    id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
+    date_begin: Mapped[datetime] = mapped_column(DateTime)
+    date_end: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    user: Mapped["User"] = relationship(back_populates="rents")
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    book: Mapped["Book"] = relationship(back_populates="rents")
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id"))
+
 
 class UserDoesNotExistException(Exception):
     pass
