@@ -1,7 +1,7 @@
 from typing import List
 from typing import Optional
-from sqlalchemy import DateTime
-from datetime import datetime
+from sqlalchemy import DateTime, Null, Date
+from datetime import date
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase
@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from sqlalchemy import Engine
-
+from sqlalchemy.sql import func
 
 class Base(DeclarativeBase):
     pass
@@ -49,8 +49,8 @@ class User(Base):
 class Rented(Base):
     __tablename__ = "rented"
     id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
-    date_begin: Mapped[datetime] = mapped_column(DateTime)
-    date_end: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    date_begin: Mapped[Date] = mapped_column(Date)
+    date_end: Mapped[Date] = mapped_column(Date, nullable=True)
     user: Mapped["User"] = relationship(back_populates="rents")
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     book: Mapped["Book"] = relationship(back_populates="rents")
@@ -60,6 +60,8 @@ class Rented(Base):
 class UserDoesNotExistException(Exception):
     pass
 class BookDoesNotExistException(Exception):
+    pass
+class BookAlreadyRented(Exception):
     pass
 
 class Operation:
@@ -81,12 +83,28 @@ class Operation:
 
         if not user:
             raise UserDoesNotExistException()
-        elif not book:
+        if not book:
             raise BookDoesNotExistException()
 
         book.user_id = user_id
 
         self.session.commit()
+    def rent_book(self,user_id:int,book_id:int):
+        user: type[User] = self.session.query(User).filter_by(id=user_id).one()
+        book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
+        rented:type[Rented] = self.session.query(Rented).filter_by(book_id=book_id,date_end=Null).one()
+        if not user:
+            raise UserDoesNotExistException()
+        if not book:
+            raise BookDoesNotExistException()
+        if rented:
+            raise BookAlreadyRented()
+
+        self.session.add(Rented(date_begin=date(2026,2,27),date_end=Null,user_id=user_id,book_id=book_id))
+        self.session.commit()
+
+
+
 
 
     def init_db(self):
@@ -95,7 +113,9 @@ class Operation:
 
 operation = Operation()
 operation.init_db()
-operation.insert_user("Kacper", "Barszcz", "kapi@A.com")
-operation.insert_book("Balladyna", "Julisz Slowacki", "1830")
+# operation.insert_user("Kacper", "Barszcz", "kapi@A.com")
+# operation.insert_book("Balladyna", "Julisz Slowacki", "1830")
+#
+# operation.update_book_owner(1, 1)
+operation.rent_book(2,2)
 
-operation.update_book_owner(1, 1)
