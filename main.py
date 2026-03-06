@@ -1,6 +1,6 @@
 from typing import List
 from typing import Optional
-from sqlalchemy import DateTime, Null, Date
+from sqlalchemy import DateTime, Date
 from datetime import date
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
@@ -49,8 +49,8 @@ class User(Base):
 class Rented(Base):
     __tablename__ = "rented"
     id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
-    date_begin: Mapped[Date] = mapped_column(Date)
-    date_end: Mapped[Date] = mapped_column(Date, nullable=True)
+    date_begin: Mapped[date] = mapped_column(Date)
+    date_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     user: Mapped["User"] = relationship(back_populates="rents")
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     book: Mapped["Book"] = relationship(back_populates="rents")
@@ -92,7 +92,7 @@ class Operation:
     def rent_book(self,user_id:int,book_id:int):
         user: type[User] = self.session.query(User).filter_by(id=user_id).one()
         book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
-        rented:type[Rented] = self.session.query(Rented).filter_by(book_id=book_id,date_end=Null).one()
+        rented:type[Rented] = self.session.query(Rented).filter_by(book_id=book_id,date_end=None).one()
         if not user:
             raise UserDoesNotExistException()
         if not book:
@@ -100,7 +100,7 @@ class Operation:
         if rented:
             raise BookAlreadyRented()
 
-        self.session.add(Rented(date_begin=date(2026,2,27),date_end=Null,user_id=user_id,book_id=book_id))
+        self.session.add(Rented(date_begin=date(2026,2,27),date_end=None,user_id=user_id,book_id=book_id))
         self.session.commit()
 
 
