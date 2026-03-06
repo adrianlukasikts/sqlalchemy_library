@@ -1,9 +1,10 @@
 from typing import List
 from typing import Optional
 from sqlalchemy import DateTime, Date
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
@@ -90,17 +91,20 @@ class Operation:
 
         self.session.commit()
     def rent_book(self,user_id:int,book_id:int):
-        user: type[User] = self.session.query(User).filter_by(id=user_id).one()
-        book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
-        rented:type[Rented] = self.session.query(Rented).filter_by(book_id=book_id,date_end=None).one()
-        if not user:
+        try:
+            user: type[User] = self.session.query(User).filter_by(id=user_id).one()
+        except NoResultFound:
             raise UserDoesNotExistException()
-        if not book:
+        try:
+            book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
+        except NoResultFound:
             raise BookDoesNotExistException()
-        if rented:
+        try:
+            rented:type[Rented] = self.session.query(Rented).filter_by(book_id=book_id,date_end=None).one()
+        except NoResultFound:
             raise BookAlreadyRented()
 
-        self.session.add(Rented(date_begin=date(2026,2,27),date_end=None,user_id=user_id,book_id=book_id))
+        self.session.add(Rented(date_begin=datetime.now(),date_end=None,user_id=user_id,book_id=book_id))
         self.session.commit()
 
 
@@ -118,4 +122,29 @@ operation.init_db()
 #
 # operation.update_book_owner(1, 1)
 operation.rent_book(2,2)
+
+while True:
+    print('1. Dodaj książkę')
+    print('2. Dodaj użytkownika')
+    print('3. Wypożycz książkę')
+    print('4. Oddaj książkę')
+    print("5. Ureguluj opłatę")
+    print("6. Stan konta")
+    print('Q. Wyjdź')
+    action: str = input('> podaj nr. akcji ')
+    match action:
+        case '1':
+            pass
+        case '2':
+            pass
+        case '3':
+            pass
+        case '4':
+            pass
+        case '5':
+            pass
+        case '6':
+            pass
+        case 'Q':
+            pass
 
