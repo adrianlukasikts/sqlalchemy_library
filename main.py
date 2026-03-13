@@ -14,6 +14,16 @@ from sqlalchemy import create_engine
 from sqlalchemy import Engine
 from sqlalchemy.sql import func
 
+import sqlite3
+con = sqlite3.connect("library.db")
+
+cur = con.cursor()
+
+res = cur.execute("SELECT name FROM sqlite_master")
+res.fetchone()
+print(res)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -121,7 +131,7 @@ operation.init_db()
 # operation.insert_book("Balladyna", "Julisz Slowacki", "1830")
 #
 # operation.update_book_owner(1, 1)
-operation.rent_book(2,2)
+#operation.rent_book(2,2)
 
 while True:
     print('1. Dodaj książkę')
@@ -131,14 +141,21 @@ while True:
     print("5. Ureguluj opłatę")
     print("6. Stan konta")
     print('Q. Wyjdź')
-    action: str = input('> podaj nr. akcji ')
+    action: str = input('Podaj nr. akcji >')
     match action:
         case '1':
-            pass
+
+            operation.insert_book( input('Podaj tytuł książki >'),
+                                   input('Podaj autora książki >'),
+                                   input('Podaj rok wydania >'))
+
         case '2':
-            pass
+            operation.insert_user( input('Podaj imię użytkownika >'),
+                                   input('Podaj nazwisko użytkownika >'),
+                                   input("Podaj e-mail użytkownika >") )
         case '3':
-            pass
+            operation.rent_book(int(input('Podaj id użytkownika >')),
+                                int(input('Podaj id książki >')))
         case '4':
             pass
         case '5':
