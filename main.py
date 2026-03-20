@@ -1,6 +1,6 @@
 from typing import List
 from typing import Optional
-from sqlalchemy import DateTime, Date
+from sqlalchemy import DateTime, Date, Null, and_
 from datetime import date, datetime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
@@ -74,6 +74,8 @@ class BookDoesNotExistException(Exception):
     pass
 class BookAlreadyRented(Exception):
     pass
+class BookDoesNotRented(Exception):
+    pass
 
 class Operation:
     def __init__(self):
@@ -98,8 +100,34 @@ class Operation:
             raise BookDoesNotExistException()
 
         book.user_id = user_id
+    def return_book(self, book_id:int):
+         try:
+             book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
+         except NoResultFound:
+             raise BookDoesNotExistException()
+         rented_query = self.session.query(Rented).filter_by(book_id=book_id)
+         if not self.session.query(rented_query.exists()).scalar():
+             raise BookDoesNotRented()
+         try:
+            rented_book = self.session.query(Rented).filter(and_(Rented.book_id==book_id, Rented.date_end == None)).one()
+            # ToDo update
+         except NoResultFound:
+             raise BookDoesNotRented()
 
-        self.session.commit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+    self.session.commit()
     def rent_book(self,user_id:int,book_id:int):
         try:
             user: type[User] = self.session.query(User).filter_by(id=user_id).one()
@@ -157,7 +185,7 @@ while True:
             operation.rent_book(int(input('Podaj id użytkownika >')),
                                 int(input('Podaj id książki >')))
         case '4':
-            pass
+            operation.
         case '5':
             pass
         case '6':
