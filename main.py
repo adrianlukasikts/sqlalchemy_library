@@ -1,6 +1,6 @@
 from typing import List
 from typing import Optional
-from sqlalchemy import DateTime, Date, Null, and_
+from sqlalchemy import Date, and_
 from datetime import date, datetime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
@@ -12,21 +12,9 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from sqlalchemy import Engine
-from sqlalchemy.sql import func
-
-import sqlite3
-con = sqlite3.connect("library.db")
-
-cur = con.cursor()
-
-res = cur.execute("SELECT name FROM sqlite_master")
-res.fetchone()
-print(res)
-
 
 class Base(DeclarativeBase):
     pass
-
 
 
 class Book(Base):
@@ -37,7 +25,7 @@ class Book(Base):
     year: Mapped[int] = mapped_column(name="year")
 
     user: Mapped["User"] = relationship(back_populates="books")
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"),nullable=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
     rents: Mapped[List["Rented"]] = relationship(
         back_populates="book", cascade="all"
     )
@@ -57,6 +45,7 @@ class User(Base):
         back_populates="user", cascade="all"
     )
 
+
 class Rented(Base):
     __tablename__ = "rented"
     id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
@@ -70,29 +59,43 @@ class Rented(Base):
 
 class UserDoesNotExistException(Exception):
     pass
+
+
 class BookDoesNotExistException(Exception):
     pass
+
+
 class BookAlreadyRented(Exception):
     pass
+
+
 class BookDoesNotRented(Exception):
     pass
 
+
 class Operation:
     def __init__(self):
-        self.engine: Engine = create_engine("sqlite:///library.db", echo=True)
-        self.session: Session = Session(self.engine)
+        self.engine: Engine = create_engine("sqlite:///library.db",  connect_args={"check_same_thread": False}, echo=True)
+        Base.metadata.create_all(self.engine)
 
     def insert_book(self, title: str, author: str, year: str):
-        self.session.add(Book(title=title, author=author, year=year))
-        self.session.commit()
+        session: Session = Session(self.engine)
+        session.add(Book(title=title, author=author, year=year))
+        session.commit()
+        session.close()
 
     def insert_user(self, name: str, surname: str, email: str):
-        self.session.add(User(name=name, surname=surname, email=email, books=[]))
-        self.session.commit()
+        session: Session = Session(self.engine)
+
+        session.add(User(name=name, surname=surname, email=email, books=[]))
+        session.commit()
+        session.close()
 
     def update_book_owner(self, book_id: int, user_id: int):
-        user: type[User] = self.session.query(User).filter_by(id=user_id).one()
-        book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
+        session: Session = Session(self.engine)
+
+        user: type[User] = session.query(User).filter_by(id=user_id).one()
+        book: type[Book] = session.query(Book).filter_by(id=book_id).one()
 
         if not user:
             raise UserDoesNotExistException()
@@ -100,66 +103,56 @@ class Operation:
             raise BookDoesNotExistException()
 
         book.user_id = user_id
-    def return_book(self, book_id:int):
-         try:
-             book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
-         except NoResultFound:
-             raise BookDoesNotExistException()
-         rented_query = self.session.query(Rented).filter_by(book_id=book_id)
-         if not self.session.query(rented_query.exists()).scalar():
-             raise BookDoesNotRented()
-         try:
-            rented_book = self.session.query(Rented).filter(and_(Rented.book_id==book_id, Rented.date_end == None)).one()
-            # ToDo update
-         except NoResultFound:
-             raise BookDoesNotRented()
 
+        session.commit()
+        session.close()
 
+    def return_book(self, book_id: int):
+        session: Session = Session(self.engine)
 
-
-
-
-
-
-
-
-
-
-
-
-    self.session.commit()
-    def rent_book(self,user_id:int,book_id:int):
         try:
-            user: type[User] = self.session.query(User).filter_by(id=user_id).one()
+            book: type[Book] = session.query(Book).filter_by(id=book_id).one()
+        except NoResultFound:
+            raise BookDoesNotExistException()
+        rented_query = session.query(Rented).filter_by(book_id=book_id)
+        if not session.query(rented_query.exists()).scalar():
+            raise BookDoesNotRented()
+        try:
+            rented_book: type[Rented] = session.query(Rented).filter(
+                and_(Rented.book_id == book_id, Rented.date_end == None)).one()
+            rented_book.date_end = datetime.now()
+
+        except NoResultFound:
+            raise BookDoesNotRented()
+
+        session.commit()
+        session.close()
+
+
+    def rent_book(self, user_id: int, book_id: int):
+        session: Session = Session(self.engine)
+
+        try:
+            user: type[User] = session.query(User).filter_by(id=user_id).one()
         except NoResultFound:
             raise UserDoesNotExistException()
         try:
-            book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
+            book: type[Book] = session.query(Book).filter_by(id=book_id).one()
         except NoResultFound:
             raise BookDoesNotExistException()
         try:
-            rented:type[Rented] = self.session.query(Rented).filter_by(book_id=book_id,date_end=None).one()
+            rented: type[Rented] = session.query(Rented).filter_by(book_id=book_id, date_end=None).one()
         except NoResultFound:
             raise BookAlreadyRented()
 
-        self.session.add(Rented(date_begin=datetime.now(),date_end=None,user_id=user_id,book_id=book_id))
-        self.session.commit()
+        session.add(Rented(date_begin=datetime.now(), date_end=None, user_id=user_id, book_id=book_id))
+        session.commit()
+        session.close()
 
-
-
-
-
-    def init_db(self):
-        Base.metadata.create_all(self.engine)
 
 
 operation = Operation()
-operation.init_db()
-# operation.insert_user("Kacper", "Barszcz", "kapi@A.com")
-# operation.insert_book("Balladyna", "Julisz Slowacki", "1830")
-#
-# operation.update_book_owner(1, 1)
-#operation.rent_book(2,2)
+
 
 while True:
     print('1. Dodaj książkę')
@@ -173,23 +166,25 @@ while True:
     match action:
         case '1':
 
-            operation.insert_book( input('Podaj tytuł książki >'),
-                                   input('Podaj autora książki >'),
-                                   input('Podaj rok wydania >'))
+            operation.insert_book(input('Podaj tytuł książki >'),
+                                  input('Podaj autora książki >'),
+                                  input('Podaj rok wydania >'))
 
         case '2':
-            operation.insert_user( input('Podaj imię użytkownika >'),
-                                   input('Podaj nazwisko użytkownika >'),
-                                   input("Podaj e-mail użytkownika >") )
+            operation.insert_user(input('Podaj imię użytkownika >'),
+                                  input('Podaj nazwisko użytkownika >'),
+                                  input("Podaj e-mail użytkownika >"))
         case '3':
             operation.rent_book(int(input('Podaj id użytkownika >')),
                                 int(input('Podaj id książki >')))
         case '4':
-            operation.
+            operation.return_book(int(input('Podaj id książki >')))
         case '5':
             pass
         case '6':
             pass
         case 'Q':
-            pass
+            break
+        case "q":
+            break
 
