@@ -75,27 +75,21 @@ class BookDoesNotRented(Exception):
 
 class Operation:
     def __init__(self):
-        self.engine: Engine = create_engine("sqlite:///library.db",  connect_args={"check_same_thread": False}, echo=True)
+        self.engine: Engine = create_engine("sqlite:///library.db", echo=True)
+        self.session: Session = Session(self.engine)
         Base.metadata.create_all(self.engine)
 
     def insert_book(self, title: str, author: str, year: str):
-        session: Session = Session(self.engine)
-        session.add(Book(title=title, author=author, year=year))
-        session.commit()
-        session.close()
+        self.session.add(Book(title=title, author=author, year=year))
+        self.session.commit()
 
     def insert_user(self, name: str, surname: str, email: str):
-        session: Session = Session(self.engine)
-
-        session.add(User(name=name, surname=surname, email=email, books=[]))
-        session.commit()
-        session.close()
+        self.session.add(User(name=name, surname=surname, email=email, books=[]))
+        self.session.commit()
 
     def update_book_owner(self, book_id: int, user_id: int):
-        session: Session = Session(self.engine)
-
-        user: type[User] = session.query(User).filter_by(id=user_id).one()
-        book: type[Book] = session.query(Book).filter_by(id=book_id).one()
+        user: type[User] = self.session.query(User).filter_by(id=user_id).one()
+        book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
 
         if not user:
             raise UserDoesNotExistException()
@@ -104,50 +98,43 @@ class Operation:
 
         book.user_id = user_id
 
-        session.commit()
-        session.close()
+        self.session.commit()
 
     def return_book(self, book_id: int):
-        session: Session = Session(self.engine)
-
         try:
-            book: type[Book] = session.query(Book).filter_by(id=book_id).one()
+            book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
         except NoResultFound:
             raise BookDoesNotExistException()
-        rented_query = session.query(Rented).filter_by(book_id=book_id)
-        if not session.query(rented_query.exists()).scalar():
+        rented_query = self.session.query(Rented).filter_by(book_id=book_id)
+        if not self.session.query(rented_query.exists()).scalar():
             raise BookDoesNotRented()
         try:
-            rented_book: type[Rented] = session.query(Rented).filter(
+            rented_book: type[Rented] = self.session.query(Rented).filter(
                 and_(Rented.book_id == book_id, Rented.date_end == None)).one()
             rented_book.date_end = datetime.now()
 
         except NoResultFound:
             raise BookDoesNotRented()
 
-        session.commit()
-        session.close()
+        self.session.commit()
 
 
     def rent_book(self, user_id: int, book_id: int):
-        session: Session = Session(self.engine)
-
         try:
-            user: type[User] = session.query(User).filter_by(id=user_id).one()
+            user: type[User] = self.session.query(User).filter_by(id=user_id).one()
         except NoResultFound:
             raise UserDoesNotExistException()
         try:
-            book: type[Book] = session.query(Book).filter_by(id=book_id).one()
+            book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
         except NoResultFound:
             raise BookDoesNotExistException()
         try:
-            rented: type[Rented] = session.query(Rented).filter_by(book_id=book_id, date_end=None).one()
+            rented: type[Rented] = self.session.query(Rented).filter_by(book_id=book_id, date_end=None).one()
         except NoResultFound:
             raise BookAlreadyRented()
 
-        session.add(Rented(date_begin=datetime.now(), date_end=None, user_id=user_id, book_id=book_id))
-        session.commit()
-        session.close()
+        self.session.add(Rented(date_begin=datetime.now(), date_end=None, user_id=user_id, book_id=book_id))
+        self.session.commit()
 
 
 
