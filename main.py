@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy import Date, and_
 from datetime import date, datetime
 from sqlalchemy import ForeignKey
-from sqlalchemy import String
+from sqlalchemy import String, Integer
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
@@ -46,6 +46,7 @@ class User(Base):
     )
 
 
+
 class Rented(Base):
     __tablename__ = "rented"
     id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
@@ -56,6 +57,12 @@ class Rented(Base):
     book: Mapped["Book"] = relationship(back_populates="rents")
     book_id: Mapped[int] = mapped_column(ForeignKey("books.id"))
 
+class Fee(Base):
+    __tablename__ = "fees"
+    id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
+    price: Mapped[int] = mapped_column(Integer)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    rent_id: Mapped[int] = mapped_column(ForeignKey("rented.id"))
 
 class UserDoesNotExistException(Exception):
     pass
@@ -128,9 +135,10 @@ class Operation:
             book: type[Book] = self.session.query(Book).filter_by(id=book_id).one()
         except NoResultFound:
             raise BookDoesNotExistException()
-        try:
-            rented: type[Rented] = self.session.query(Rented).filter_by(book_id=book_id, date_end=None).one()
-        except NoResultFound:
+
+
+        rented: type[Rented] = self.session.query(Rented).filter_by(book_id=book_id, date_end=None).first()
+        if rented:
             raise BookAlreadyRented()
 
         self.session.add(Rented(date_begin=datetime.now(), date_end=None, user_id=user_id, book_id=book_id))
