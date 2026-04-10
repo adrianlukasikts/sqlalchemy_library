@@ -119,6 +119,11 @@ class Operation:
             rented_book: type[Rented] = self.session.query(Rented).filter(
                 and_(Rented.book_id == book_id, Rented.date_end == None)).one()
             rented_book.date_end = datetime.now()
+            #todo days diff trzeba poprawic tamta date na now w rent book
+            days_diff = (rented_book.date_end - rented_book.date_begin).days
+
+            if days_diff > 30:
+                self.session.add(Fee(price=days_diff-30, user_id=rented_book.user_id, book_id=rented_book.book_id))
 
         except NoResultFound:
             raise BookDoesNotRented()
@@ -141,7 +146,7 @@ class Operation:
         if rented:
             raise BookAlreadyRented()
 
-        self.session.add(Rented(date_begin=datetime.now(), date_end=None, user_id=user_id, book_id=book_id))
+        self.session.add(Rented(date_begin=datetime(2026, 1, 1), date_end=None, user_id=user_id, book_id=book_id))
         self.session.commit()
 
 
