@@ -1,6 +1,6 @@
 from typing import List
 from typing import Optional
-from sqlalchemy import Date, and_
+from sqlalchemy import Date, and_, DateTime
 from datetime import date, datetime
 from sqlalchemy import ForeignKey
 from sqlalchemy import String, Integer
@@ -50,8 +50,8 @@ class User(Base):
 class Rented(Base):
     __tablename__ = "rented"
     id: Mapped[int] = mapped_column(primary_key=True, name="id", autoincrement=True)
-    date_begin: Mapped[date] = mapped_column(Date)
-    date_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    date_begin: Mapped[datetime] = mapped_column(DateTime)
+    date_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     user: Mapped["User"] = relationship(back_populates="rents")
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     book: Mapped["Book"] = relationship(back_populates="rents")
@@ -63,6 +63,7 @@ class Fee(Base):
     price: Mapped[int] = mapped_column(Integer)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     rent_id: Mapped[int] = mapped_column(ForeignKey("rented.id"))
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id"))
 
 class UserDoesNotExistException(Exception):
     pass
@@ -119,11 +120,10 @@ class Operation:
             rented_book: type[Rented] = self.session.query(Rented).filter(
                 and_(Rented.book_id == book_id, Rented.date_end == None)).one()
             rented_book.date_end = datetime.now()
-            #todo days diff trzeba poprawic tamta date na now w rent book
             days_diff = (rented_book.date_end - rented_book.date_begin).days
 
             if days_diff > 30:
-                self.session.add(Fee(price=days_diff-30, user_id=rented_book.user_id, book_id=rented_book.book_id))
+                self.session.add(Fee(price=days_diff-30, user_id=rented_book.user_id, rent_id=book.rents[-1].id,book_id=rented_book.book_id))
 
         except NoResultFound:
             raise BookDoesNotRented()
@@ -146,7 +146,7 @@ class Operation:
         if rented:
             raise BookAlreadyRented()
 
-        self.session.add(Rented(date_begin=datetime(2026, 1, 1), date_end=None, user_id=user_id, book_id=book_id))
+        self.session.add(Rented(date_begin=datetime.now(), date_end=None, user_id=user_id, book_id=book_id))
         self.session.commit()
 
 
